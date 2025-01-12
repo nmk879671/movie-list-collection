@@ -1,52 +1,51 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import movieDao from "../../dao/movieDao";
 import {
-  Avatar,
   Button,
-  Checkbox,
-  ListItemAvatar,
-  ListItemButton,
   TextField,
-  List,
-  ListItem,
-  ListItemText,
   Card,
   CardActionArea,
   CardMedia,
   CardContent,
   Typography,
   CardActions,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Dialog,
-  Paper,
+  IconButton
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import "./index.css";
 import _get from "lodash/get";
-import * as PropTypes from "prop-types";
-import Modal from "../../component/modal";
+import Modal from "../../component/Modal";
+import MovieDetail from "../../component/MovieDetail";
+import CloseIcon from "@mui/icons-material/Close";
+import AddIcon from "@mui/icons-material/Add";
 
-function Draggable(props) {
-  return null;
-}
-
-Draggable.propTypes = {
-  nodeRef: PropTypes.any,
-  cancel: PropTypes.string,
-  handle: PropTypes.string,
-  children: PropTypes.node,
-};
 export default function ListMovies() {
   const [value, setValue] = useState("Titanic");
   const [data, setData] = useState([]);
   const [checked, setChecked] = React.useState([1]);
   const [show, setShow] = useState(false);
-  const [title, setTitle] = useState("");
+  const [movieDetail, setMovieDetail] = useState(null);
+  const [favorites, setFavorites] = useState([]);
 
-  const handleToggle = (value) => () => {
+  useEffect(() => {
+    movieDao.getFavorites().then(r => {
+      if (r.results) {
+        setFavorites(r.results.map(movie => movie.id));
+      }
+    });
+  }, []);
+
+  const toggleFavorite = movieId => {
+    if (favorites.includes(movieId)) {
+      setFavorites(favorites.filter(id => id !== movieId));
+      movieDao.removeFavorite(movieId);
+    } else {
+      setFavorites([...favorites, movieId]);
+      movieDao.addFavorite(movieId);
+    }
+  };
+
+  const handleToggle = value => () => {
     const currentIndex = checked.indexOf(value);
     const newChecked = [...checked];
 
@@ -60,10 +59,10 @@ export default function ListMovies() {
   };
 
   const searchMovies = () => {
-    movieDao.findMovieByKey(value).then((r) => {
+    movieDao.findMovieByKey(value).then(r => {
       if (r && r.results)
         setData(
-          r.results.map((movie) => ({
+          r.results.map(movie => ({
             id: _get(movie, "id", ""),
             title: _get(movie, "title", ""),
             releaseDate: _get(movie, "release_date", ""),
@@ -73,14 +72,73 @@ export default function ListMovies() {
             vote_count: _get(movie, "vote_count", ""),
             imageUrl: _get(movie, "poster_path")
               ? `https://image.tmdb.org/t/p/w154${_get(movie, "poster_path")}`
-              : null,
+              : null
           }))
         );
     });
   };
 
+  function showDetail(id) {
+    movieDao.getMovieDetail(id).then(r => {
+      console.log("* Movie Details:", r);
+
+      const movieDetails = {
+        title: _get(r, "title", ""),
+        originalTitle: _get(r, "original_title", ""),
+        overview: _get(r, "overview", ""),
+        releaseDate: _get(r, "release_date", ""),
+        genres: _get(r, "genres", []).map(genre => genre.name),
+        budget: _get(r, "budget", 0),
+        revenue: _get(r, "revenue", 0),
+        runtime: _get(r, "runtime", 0),
+        tagline: _get(r, "tagline", ""),
+        posterPath: _get(r, "poster_path")
+          ? `https://www.themoviedb.org/t/p/w500${_get(r, "poster_path")}`
+          : null,
+        backdropPath: _get(r, "backdrop_path")
+          ? `https://www.themoviedb.org/t/p/w500${_get(r, "backdrop_path")}`
+          : null,
+        homepage: _get(r, "homepage", ""),
+        imdbId: _get(r, "imdb_id", ""),
+        voteAverage: _get(r, "vote_average", 0),
+        voteCount: _get(r, "vote_count", 0)
+      };
+
+      movieDao.getMovieDetailCredits(id).then(credits => {
+        console.log("* Movie Credits:", credits);
+
+        const cast = _get(credits, "cast", []).map(actor => ({
+          name: _get(actor, "name", ""),
+          character: _get(actor, "character", ""),
+          profilePath: _get(actor, "profile_path")
+            ? `https://www.themoviedb.org/t/p/w500${_get(
+                actor,
+                "profile_path"
+              )}`
+            : null
+        }));
+
+        const director = _get(credits, "crew", [])
+          .filter(member => member.job === "Director")
+          .map(d => _get(d, "name", ""));
+
+        setMovieDetail({
+          ...movieDetails,
+          cast,
+          director
+        });
+
+        setShow(true);
+      });
+    });
+  }
+
   function getDetail() {
-    return <div>test</div>;
+    return (
+      <div>
+        <MovieDetail movie={movieDetail} />
+      </div>
+    );
   }
 
   return (
@@ -91,7 +149,7 @@ export default function ListMovies() {
           label="Movie Keyword"
           style={{ marginRight: "20px" }}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={e => setValue(e.target.value)}
         />
         <Button
           size={"large"}
@@ -104,7 +162,7 @@ export default function ListMovies() {
       </div>
       {data.length > 0 && (
         <div className="d-flex">
-          {data.map((value) => {
+          {data.map(value => {
             return (
               <Card
                 sx={{
@@ -112,7 +170,7 @@ export default function ListMovies() {
                   height: 700,
                   margin: "10px",
                   display: "flex",
-                  flexDirection: "column",
+                  flexDirection: "column"
                 }}
               >
                 <CardActionArea>
@@ -133,7 +191,7 @@ export default function ListMovies() {
                         overflow: "hidden",
                         display: "-webkit-box",
                         WebkitBoxOrient: "vertical",
-                        WebkitLineClamp: 6,
+                        WebkitLineClamp: 6
                       }}
                     >
                       {value.overview}
@@ -144,24 +202,27 @@ export default function ListMovies() {
                   sx={{
                     marginTop: "auto",
                     display: "flex",
-                    justifyContent: "space-between",
+                    justifyContent: "space-between"
                   }}
                 >
                   <Button
                     size="small"
                     color="primary"
-                    onClick={() => setShow(true)}
+                    onClick={() => showDetail(value.id)}
                   >
                     Detail
                   </Button>
                   <div>
-                    <Checkbox
-                      sx={{ marginRight: "10px" }}
-                      edge="end"
-                      onChange={handleToggle(value.id)}
-                      checked={checked.includes(value.id)}
-                      inputProps={{ "aria-labelledby": value.id }}
-                    />
+                    <IconButton
+                      onClick={() => toggleFavorite(value.id)}
+                      color="primary"
+                    >
+                      {favorites.includes(value.id) ? (
+                        <CloseIcon color="error" />
+                      ) : (
+                        <AddIcon />
+                      )}
+                    </IconButton>
                   </div>
                 </CardActions>
               </Card>
