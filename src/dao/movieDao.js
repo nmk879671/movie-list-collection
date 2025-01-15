@@ -1,5 +1,8 @@
+const API_KEY = "f9a33d6b9189d41ab5f53399f348bd80";
+const BASE_URL = "https://api.themoviedb.org/3";
+
 const get = async url => {
-  return await fetch(url + "&api_key=f9a33d6b9189d41ab5f53399f348bd80", {
+  return await fetch(`${url}&api_key=${API_KEY}`, {
     method: "GET",
     headers: {
       accept: "application/json",
@@ -8,7 +11,6 @@ const get = async url => {
     }
   })
     .then(res => res.json())
-    .then(json => json)
     .catch(err => console.error(err));
 };
 
@@ -29,40 +31,48 @@ const post = async (url, body) => {
 };
 
 const movieDao = {
-  getListMovie: () => {
-    return get("https://api.themoviedb.org/3/genre/movie/list?language=en");
-  },
-  findMovieByKey: key => {
-    return get(`https://api.themoviedb.org/3/search/movie?query=${key}
-`);
-  },
-  getMovieDetail: movieId => {
-    return get(`https://api.themoviedb.org/3/movie/${movieId}?language=`);
-  },
-  getMovieDetailCredits: movieId => {
+  findMovieByKey: (key, page = 1) => {
     return get(
-      `https://api.themoviedb.org/3/movie/${movieId}/credits?language=`
+      `${BASE_URL}/search/movie?query=${key}&page=${page}&sort_by=popularity.desc`
     );
   },
+  getMovieDetail: movieId => {
+    return get(`${BASE_URL}/movie/${movieId}?language=en-US`);
+  },
+  getMovieDetailCredits: movieId => {
+    return get(`${BASE_URL}/movie/${movieId}/credits?language=en-US`);
+  },
   addFavorite: movieId => {
-    return post("https://api.themoviedb.org/3/account/21743480/favorite", {
+    return post(`${BASE_URL}/account/21743480/favorite`, {
       media_type: "movie",
       media_id: movieId,
       favorite: true
     });
   },
   removeFavorite: movieId => {
-    return post(
-      "https://api.themoviedb.org/3/account/21743480/favorite",
-      {
-        media_type: "movie",
-        media_id: movieId,
-        favorite: false
-      }
-    );
+    return post(`${BASE_URL}/account/21743480/favorite`, {
+      media_type: "movie",
+      media_id: movieId,
+      favorite: false
+    });
   },
-  getFavorites: () => {
-    return get("https://api.themoviedb.org/3/account/21743480/favorite/movies?page=1");
+  getFavorites: async () => {
+    let page = 1;
+    let allFavorites = [];
+    let hasMorePages = true;
+
+    while (hasMorePages) {
+      const response = await get(
+        `${BASE_URL}/account/21743480/favorite/movies?page=${page}`
+      );
+      if (response && response.results && response.results.length > 0) {
+        allFavorites = [...allFavorites, ...response.results];
+        page++;
+      } else {
+        hasMorePages = false;
+      }
+    }
+    return { results: allFavorites };
   }
 };
 

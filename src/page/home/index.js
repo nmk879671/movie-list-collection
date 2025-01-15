@@ -6,7 +6,7 @@ import TabList from "@mui/lab/TabList";
 import TabPanel from "@mui/lab/TabPanel";
 import ListMovies from "../listmovie";
 import FavoriteMovie from "../favoritemovie";
-import './index.css'
+import { ToastContainer } from "react-toastify";
 
 export default function Home() {
   const [value, setValue] = useState("1");
@@ -16,6 +16,17 @@ export default function Home() {
   };
   return (
     <>
+      <ToastContainer
+        position="top-center"
+        autoClose={5000}
+        hideProgressBar={true}
+        newestOnTop={true}
+        closeOnClick
+        rtl={false}
+        pauseOnVisibilityChange
+        draggable
+        pauseOnHover
+      />
       <div>
         <h1 className="">Movies To Watch</h1>
       </div>

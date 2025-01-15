@@ -4,20 +4,16 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogContentText,
-  DialogTitle,
+  DialogContentText
 } from "@mui/material";
 
-export default function Modal({ show, setShow, title, body }) {
+export default function Modal({ show, setShow, body }) {
   return (
     <Dialog
       open={show}
       onClose={() => setShow(false)}
       aria-labelledby="draggable-dialog-title"
     >
-      <DialogTitle style={{ cursor: "move" }} id="draggable-dialog-title">
-        {title}
-      </DialogTitle>
       <DialogContent>
         <DialogContentText>{body}</DialogContentText>
       </DialogContent>

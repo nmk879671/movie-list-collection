@@ -1,31 +1,28 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import movieDao from "../../dao/movieDao";
-import {
-  Button,
-  TextField,
-  Card,
-  CardActionArea,
-  CardMedia,
-  CardContent,
-  Typography,
-  CardActions,
-  IconButton
-} from "@mui/material";
+import { Button, MenuItem, Select, TextField } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import "./index.css";
-import _get from "lodash/get";
 import Modal from "../../component/Modal";
 import MovieDetail from "../../component/MovieDetail";
-import CloseIcon from "@mui/icons-material/Close";
-import AddIcon from "@mui/icons-material/Add";
+import MovieCard from "../../component/MovieCard";
+import movieUtils from "../../utils/movieUtils";
+import InfiniteScroll from "react-infinite-scroll-component";
+import { toast } from "react-toastify";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import SortControls from "../../component/SortControl";
 
 export default function ListMovies() {
   const [value, setValue] = useState("Titanic");
   const [data, setData] = useState([]);
-  const [checked, setChecked] = React.useState([1]);
   const [show, setShow] = useState(false);
   const [movieDetail, setMovieDetail] = useState(null);
   const [favorites, setFavorites] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [sortBy, setSortBy] = useState("popularity");
+  const [sortOrder, setSortOrder] = useState("asc");
 
   useEffect(() => {
     movieDao.getFavorites().then(r => {
@@ -37,109 +34,52 @@ export default function ListMovies() {
 
   const toggleFavorite = movieId => {
     if (favorites.includes(movieId)) {
-      setFavorites(favorites.filter(id => id !== movieId));
-      movieDao.removeFavorite(movieId);
+      movieDao.removeFavorite(movieId).then(() => {
+        setFavorites(favorites.filter(id => id !== movieId));
+        toast.success("Remove success!!");
+      });
     } else {
-      setFavorites([...favorites, movieId]);
-      movieDao.addFavorite(movieId);
+      movieDao.addFavorite(movieId).then(() => {
+        setFavorites([...favorites, movieId]);
+        toast.success("Add success!!");
+      });
     }
   };
 
-  const handleToggle = value => () => {
-    const currentIndex = checked.indexOf(value);
-    const newChecked = [...checked];
+  const fetchMoreMovies = async () => {
+    if (!hasMore) return;
 
-    if (currentIndex === -1) {
-      newChecked.push(value);
-    } else {
-      newChecked.splice(currentIndex, 1);
+    const r = await movieDao.findMovieByKey(value, page);
+    if (r && r.results) {
+      if (r.results.length === 0) {
+        setHasMore(false);
+      } else {
+        setData(prevData => [
+          ...prevData,
+          ...r.results.map(movie => ({
+            id: movie.id,
+            title: movie.title,
+            releaseDate: movie.release_date,
+            overview: movie.overview,
+            popularity: movie.popularity,
+            vote_average: movie.vote_average,
+            vote_count: movie.vote_count,
+            imageUrl: movie.poster_path
+              ? `https://image.tmdb.org/t/p/w154${movie.poster_path}`
+              : "https://th.bing.com/th/id/R.b8ba1662f2082e9a340a24f4de8e2959?rik=bktqTTdZjtPuDg&pid=ImgRaw&r=0" //handle null image
+          }))
+        ]);
+        setPage(prevPage => prevPage + 1);
+      }
     }
-
-    setChecked(newChecked);
   };
 
   const searchMovies = () => {
-    movieDao.findMovieByKey(value).then(r => {
-      if (r && r.results)
-        setData(
-          r.results.map(movie => ({
-            id: _get(movie, "id", ""),
-            title: _get(movie, "title", ""),
-            releaseDate: _get(movie, "release_date", ""),
-            overview: _get(movie, "overview", ""),
-            popularity: _get(movie, "popularity", ""),
-            vote_average: _get(movie, "vote_average", ""),
-            vote_count: _get(movie, "vote_count", ""),
-            imageUrl: _get(movie, "poster_path")
-              ? `https://image.tmdb.org/t/p/w154${_get(movie, "poster_path")}`
-              : null
-          }))
-        );
-    });
+    setPage(1);
+    setData([]);
+    setHasMore(true);
+    fetchMoreMovies();
   };
-
-  function showDetail(id) {
-    movieDao.getMovieDetail(id).then(r => {
-      console.log("* Movie Details:", r);
-
-      const movieDetails = {
-        title: _get(r, "title", ""),
-        originalTitle: _get(r, "original_title", ""),
-        overview: _get(r, "overview", ""),
-        releaseDate: _get(r, "release_date", ""),
-        genres: _get(r, "genres", []).map(genre => genre.name),
-        budget: _get(r, "budget", 0),
-        revenue: _get(r, "revenue", 0),
-        runtime: _get(r, "runtime", 0),
-        tagline: _get(r, "tagline", ""),
-        posterPath: _get(r, "poster_path")
-          ? `https://www.themoviedb.org/t/p/w500${_get(r, "poster_path")}`
-          : null,
-        backdropPath: _get(r, "backdrop_path")
-          ? `https://www.themoviedb.org/t/p/w500${_get(r, "backdrop_path")}`
-          : null,
-        homepage: _get(r, "homepage", ""),
-        imdbId: _get(r, "imdb_id", ""),
-        voteAverage: _get(r, "vote_average", 0),
-        voteCount: _get(r, "vote_count", 0)
-      };
-
-      movieDao.getMovieDetailCredits(id).then(credits => {
-        console.log("* Movie Credits:", credits);
-
-        const cast = _get(credits, "cast", []).map(actor => ({
-          name: _get(actor, "name", ""),
-          character: _get(actor, "character", ""),
-          profilePath: _get(actor, "profile_path")
-            ? `https://www.themoviedb.org/t/p/w500${_get(
-                actor,
-                "profile_path"
-              )}`
-            : null
-        }));
-
-        const director = _get(credits, "crew", [])
-          .filter(member => member.job === "Director")
-          .map(d => _get(d, "name", ""));
-
-        setMovieDetail({
-          ...movieDetails,
-          cast,
-          director
-        });
-
-        setShow(true);
-      });
-    });
-  }
-
-  function getDetail() {
-    return (
-      <div>
-        <MovieDetail movie={movieDetail} />
-      </div>
-    );
-  }
 
   return (
     <>
@@ -147,90 +87,60 @@ export default function ListMovies() {
         <TextField
           id="outlined-required"
           label="Movie Keyword"
-          style={{ marginRight: "20px" }}
+          style={{ marginRight: "10px" }}
           value={value}
           onChange={e => setValue(e.target.value)}
         />
         <Button
-          size={"large"}
+          size="large"
           variant="outlined"
-          startIcon={<SearchIcon />}
-          onClick={searchMovies}
+          onClick={() => searchMovies()}
+          style={{ marginLeft: "10px" }}
         >
-          Search
+          Search <SearchIcon />
         </Button>
       </div>
+      <SortControls
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
+        setData={setData}
+        data={data}
+      />
       {data.length > 0 && (
-        <div className="d-flex">
-          {data.map(value => {
-            return (
-              <Card
-                sx={{
-                  width: 300,
-                  height: 700,
-                  margin: "10px",
-                  display: "flex",
-                  flexDirection: "column"
-                }}
-              >
-                <CardActionArea>
-                  <CardMedia
-                    component="img"
-                    height={"400"}
-                    image={value.imageUrl}
-                    alt="green iguana"
-                  />
-                  <CardContent>
-                    <Typography gutterBottom variant="h5" component="div">
-                      {value.title}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "text.secondary",
-                        overflow: "hidden",
-                        display: "-webkit-box",
-                        WebkitBoxOrient: "vertical",
-                        WebkitLineClamp: 6
-                      }}
-                    >
-                      {value.overview}
-                    </Typography>
-                  </CardContent>
-                </CardActionArea>
-                <CardActions
-                  sx={{
-                    marginTop: "auto",
-                    display: "flex",
-                    justifyContent: "space-between"
-                  }}
-                >
-                  <Button
-                    size="small"
-                    color="primary"
-                    onClick={() => showDetail(value.id)}
-                  >
-                    Detail
-                  </Button>
-                  <div>
-                    <IconButton
-                      onClick={() => toggleFavorite(value.id)}
-                      color="primary"
-                    >
-                      {favorites.includes(value.id) ? (
-                        <CloseIcon color="error" />
-                      ) : (
-                        <AddIcon />
-                      )}
-                    </IconButton>
-                  </div>
-                </CardActions>
-              </Card>
-            );
-          })}
-        </div>
+        <InfiniteScroll
+          dataLength={data.length}
+          next={fetchMoreMovies}
+          hasMore={hasMore}
+          loader={<h4>Loading...</h4>}
+        >
+          <div className="d-flex">
+            {data.map(value => {
+              return (
+                <MovieCard
+                  movie={value}
+                  onShowDetail={() =>
+                    movieUtils.getMovieDetailsWithCredits(
+                      value.id,
+                      setMovieDetail,
+                      setShow
+                    )
+                  }
+                  onToggleFavorite={toggleFavorite}
+                  isFavorite={favorites.includes(value.id)}
+                />
+              );
+            })}
+          </div>
+        </InfiniteScroll>
       )}
-      <Modal show={show} setShow={setShow} title={"title"} body={getDetail()} />
+      <Modal
+        show={show}
+        setShow={setShow}
+        title={"title"}
+        body={<MovieDetail movie={movieDetail} />}
+      />
     </>
   );
 }
