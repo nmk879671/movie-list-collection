@@ -11,3 +11,6 @@ A React-based web application that allows users to browse, search, and manage th
 3. ➕ Add to Favorites: Add movies to your personal favorites list.
 4. ➖ Remove from Favorites: Manage and remove movies from your favorites list.
 
+
+### Node version
+18.20.1
