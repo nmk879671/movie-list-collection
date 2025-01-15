@@ -1,7 +1,7 @@
 # 🎬 Movie List Collection
 
+Node version: 20.18.1
 A React-based web application that allows users to browse, search, and manage their favorite movies.
-
 
 
 ## Features
